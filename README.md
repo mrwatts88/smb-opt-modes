@@ -4,9 +4,15 @@ A **5,921-line patch** against [MrWint/smb-opt](https://github.com/MrWint/smb-op
 **`daa44287bc9ccab7e85b430e80bf7dff77542542`** ("worlds 3-8"), plus the tooling needed to apply,
 rebuild and verify it.
 
-Extracted 2026-08-26 from a private research project that attempted to beat HappyLee's 2011
-"warps" TAS of *Super Mario Bros.* (TASVideos #1715M, 17,868 frames). **The attempt did not
-find a faster route.** The engine work is worth keeping anyway — it is the part that generalises.
+Extracted from [mrwatts88/smb1-tas](https://github.com/mrwatts88/smb1-tas), a project that tried to
+beat HappyLee's 2011 "warps" TAS of *Super Mario Bros.* (TASVideos #1715M, 17,868 frames) by search
+rather than hand-optimisation. **The attempt failed; the record stands.** The engine work is published
+separately because it is the part that outlives the attempt.
+
+**If you only read one section, read [the bucketed beam](#4-the-bucketed-diversity-beam--the-most-reusable-idea-here).**
+It is a general point about beam search that happens to be demonstrated here in a game engine: a beam
+ranked on a single global key is structurally blind to any maneuver that must *pay before it gains*,
+and the blindness is silent — the search terminates normally and reports a clean negative.
 
 ## What upstream is, and what this adds
 
@@ -35,7 +41,7 @@ along four axes.
   **`SMBOPT_DUMP_ENDCLASSES=1`** prints, per distinct return cost, the envelope of the classes
   carrying it. Both exist because a bound you cannot interrogate is a bound you cannot debug.
 
-### 4. The bucketed ("diversity") beam — the most reusable idea here
+### 4. The bucketed diversity beam — the most reusable idea here
 Upstream's beam keeps the *N* lowest-`h` records per layer. That is a **global single-key greedy
 order**, and it is structurally blind to any maneuver that must **pay before it gains**: such a
 maneuver has worsening `h` on exactly the layers it needs to survive, so it is deleted before it can
@@ -55,6 +61,13 @@ in favour of the faster state in the same speed band.
 
 **Generalisable lesson:** if a search's key cannot represent the answer, widening the search does not
 help — and the failure is silent, because the run still terminates normally and reports a clean dry.
+Two independent negatives in the parent project were produced this way, five months apart, before
+anyone checked whether the key contained the fields the answer depended on. It did not: four of six
+were missing.
+
+**How to check for it in your own search:** take the quantity you are optimising, write down every
+state field it actually depends on, and diff that list against your beam/bucket key. If anything is
+missing, your negatives are unsound — not weak, *unsound* — and no amount of extra compute fixes it.
 
 ### Also added
 `--stop-step` (stop at a layer and checkpoint), `--resume` (continue from a layer dir),
