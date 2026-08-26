@@ -1,0 +1,32 @@
+# Native arm64 Linux build environment for smb-opt on the Mac overflow host (P0.11).
+#
+# Why a container: smb-opt pins Rust nightly-2018-06-01, which has no aarch64-apple-darwin
+# build. The x86_64-apple-darwin toolchain runs under Rosetta but cannot link — Apple's
+# 2026 linker (ld-1267) rejects the 2018 rlib layout ("archive member 'rust.metadata.bin'
+# is not mach-o"), and neither -Wl,-ld_classic nor -C prefer-dynamic gets around it.
+# Linux's linker accepts that layout (the Fedora box builds it), and
+# nightly-2018-06-01-aarch64-unknown-linux-gnu exists — so an arm64 Linux container builds
+# natively, with no Rosetta penalty, and `docker run --memory` supplies the cgroup cap that
+# macOS has no equivalent for.
+# NOTE: build with --pull=false. This Mac's Docker daemon cannot pull (F109); the base
+# image is side-loaded from the Linux box (podman save | docker load). Container
+# networking itself works, so the apt/rustup steps below are fine.
+FROM debian:bookworm-slim
+
+ARG RUST_TOOLCHAIN=nightly-2018-06-01-aarch64-unknown-linux-gnu
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl gcc g++ make libc6-dev python3 xz-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV RUSTUP_HOME=/opt/rustup CARGO_HOME=/opt/cargo
+ENV PATH=/opt/cargo/bin:$PATH
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o /tmp/rustup-init.sh \
+    && sh /tmp/rustup-init.sh -y --no-modify-path --profile minimal \
+         --default-toolchain "$RUST_TOOLCHAIN" \
+    && rm /tmp/rustup-init.sh \
+    && rustc --version && cargo --version \
+    && chmod -R a+rwX /opt/cargo /opt/rustup
+
+WORKDIR /work
